@@ -1,0 +1,105 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+node_modules
+dist
+dist-ssr
+*.local
+
+# ================= Python / FastAPI =================
+__pycache__/
+*.py[cod]
+*$py.class
+*.pyo
+*.pyd
+*.pyc
+.Python
+.venv/
+venv/
+env/
+myenv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.idea/
+
+# 构建/打包
+backend/build/
+backend/dist/
+backend/*.spec
+backend/*.bin
+backend/*.manifest
+
+# 临时/缓存/调试输出
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+~$*
+Thumbs.db
+desktop.ini
+
+# ================= 数据与生成文件 =================
+# 商户/用户数据与上传/生成文件（不入库避免泄露与仓库膨胀）
+backend/merchant_data/
+# 如果需要保留结构，可在该目录下放置 .gitkeep 并手动取消忽略：
+# !backend/merchant_data/.gitkeep
+
+# 临时交互目录模式（保险）
+backend/**/temp_interactive_*/
+
+# 上传后的中间转换/生成目录（如果不希望跟踪）
+backend/报价数据/
+backend/报价单/
+backend/客户询价表/
+backend/规范后客户询价表数据/
+backend/型号编码后的询价表数据/
+backend/规范后的价格对照表数据/
+
+# 大体积 OCR / Tesseract 运行依赖（本地环境，可按需取消）
+tupian/**
+# 如需提交训练数据或说明文件，可使用例外：
+# !tupian/README.md
+# !tupian/*.traineddata
+
+# 示例 / 测试数据如果体积大也忽略
+backend/test_data/
+# 如果希望保留少量示例文件，可用白名单：
+# !backend/test_data/README.md
+
+# 临时导出的 Excel / CSV（根目录层级意外生成时）
+/*.xlsx
+/*.xls
+/*.csv
+
+# ================= 前端构建缓存 (若日后采用构建工具) =================
+.cache/
+.parcel-cache/
+.eslintcache
+*.tsbuildinfo
+
+# ================= 其他工具/编辑器 =================
+.vscode/*
+!.vscode/extensions.json
+.history/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# ================= 不需要的系统文件 =================
+.DS_Store
+
+# 结束
