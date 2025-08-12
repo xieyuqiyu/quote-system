@@ -2086,6 +2086,11 @@ const PriceTableManager = ({ onRefresh }) => {
     const [newRowData, setNewRowData] = useState({});
     const [showAddRowModal, setShowAddRowModal] = useState(false);
     const [brands, setBrands] = useState([]);
+    
+    // 分页相关状态
+    const [currentPage, setCurrentPage] = useState(1);
+    const [pageSize, setPageSize] = useState(50);
+    const [pagination, setPagination] = useState(null);
 
     // 加载用户的价格表
     const loadUserPriceTable = async () => {
@@ -2099,7 +2104,7 @@ const PriceTableManager = ({ onRefresh }) => {
                 // 用户有价格表，加载第一个
                 const filename = priceFiles[0];
                 setPriceTable(filename);
-                await loadTableContent(filename);
+                await loadTableContent(filename, 1, pageSize);
             } else {
                 setPriceTable(null);
                 setTableData(null);
@@ -2113,15 +2118,20 @@ const PriceTableManager = ({ onRefresh }) => {
     };
 
     // 加载价格表内容
-    const loadTableContent = async (filename) => {
+    const loadTableContent = async (filename, page = 1, size = pageSize) => {
         try {
             setLoading(true);
-            const response = await request(`/price-table/${encodeURIComponent(filename)}`);
+            const response = await request(`/price-table/${encodeURIComponent(filename)}?page=${page}&page_size=${size}`);
             const data = await response.json();
             setTableData(data);
+            setPagination(data.pagination);
+            setCurrentPage(page);
+            setPageSize(size);
             
-            // 提取品牌信息
-            extractBrandsFromTable(data);
+            // 提取品牌信息 (只在第一页时提取，避免重复)
+            if (page === 1) {
+                extractBrandsFromTable(data);
+            }
         } catch (error) {
             message.error('加载价格表内容失败');
         } finally {
@@ -2162,10 +2172,23 @@ const PriceTableManager = ({ onRefresh }) => {
             setPriceTable(null);
             setTableData(null);
             setBrands([]);
+            setPagination(null);
+            setCurrentPage(1);
             onRefresh && onRefresh();
         } catch (error) {
             message.error('删除价格表失败');
         }
+    };
+
+    // 分页处理函数
+    const handlePageChange = async (page, size) => {
+        if (!priceTable) return;
+        await loadTableContent(priceTable, page, size);
+    };
+
+    const handlePageSizeChange = async (current, size) => {
+        if (!priceTable) return;
+        await loadTableContent(priceTable, 1, size);
     };
 
     // 更新单元格
@@ -2212,7 +2235,7 @@ const PriceTableManager = ({ onRefresh }) => {
             
             if (response.ok) {
                 message.success('行添加成功');
-                loadTableContent(priceTable);
+                await loadTableContent(priceTable, currentPage, pageSize);
                 setNewRowData({});
                 setShowAddRowModal(false);
             }
@@ -2230,7 +2253,7 @@ const PriceTableManager = ({ onRefresh }) => {
             
             if (response.ok) {
                 message.success('行删除成功');
-                loadTableContent(priceTable);
+                await loadTableContent(priceTable, currentPage, pageSize);
             }
         } catch (error) {
             message.error('删除行失败');
@@ -2248,7 +2271,7 @@ const PriceTableManager = ({ onRefresh }) => {
             
             if (response.ok) {
                 message.success('列删除成功');
-                loadTableContent(priceTable);
+                await loadTableContent(priceTable, currentPage, pageSize);
             }
         } catch (error) {
             message.error('删除列失败');
@@ -2292,7 +2315,7 @@ const PriceTableManager = ({ onRefresh }) => {
                     <Button type="primary" onClick={handleSaveTable}>
                         💾 保存
                     </Button>
-                    <Button onClick={() => loadTableContent(priceTable)}>
+                    <Button onClick={() => loadTableContent(priceTable, currentPage, pageSize)}>
                         🔄 刷新
                     </Button>
                     <Button danger onClick={() => {
@@ -2394,6 +2417,51 @@ const PriceTableManager = ({ onRefresh }) => {
                         </tbody>
                     </table>
                 </div>
+                
+                {/* 分页组件 */}
+                {pagination && (
+                    <div style={{ marginTop: 16, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <div style={{ color: '#666', fontSize: '14px' }}>
+                            显示第 {pagination.start_index} - {pagination.end_index} 条，共 {pagination.total_rows} 条记录
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <span style={{ fontSize: '14px' }}>每页显示:</span>
+                                <Select
+                                    value={pageSize}
+                                    onChange={(value) => handlePageSizeChange(currentPage, value)}
+                                    style={{ width: 80 }}
+                                    size="small"
+                                >
+                                    <Option value={20}>20</Option>
+                                    <Option value={50}>50</Option>
+                                    <Option value={100}>100</Option>
+                                    <Option value={200}>200</Option>
+                                </Select>
+                                <span style={{ fontSize: '14px' }}>条</span>
+                            </div>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                                <Button 
+                                    size="small" 
+                                    disabled={!pagination.has_prev}
+                                    onClick={() => handlePageChange(currentPage - 1, pageSize)}
+                                >
+                                    上一页
+                                </Button>
+                                <span style={{ margin: '0 8px', fontSize: '14px' }}>
+                                    第 {pagination.current_page} / {pagination.total_pages} 页
+                                </span>
+                                <Button 
+                                    size="small" 
+                                    disabled={!pagination.has_next}
+                                    onClick={() => handlePageChange(currentPage + 1, pageSize)}
+                                >
+                                    下一页
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         );
     };

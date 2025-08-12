@@ -2103,9 +2103,61 @@ def match_quote_with_price_table(quote_file, price_file, selected_brand=None):
     quote_df.to_excel(quote_file, index=False)
     return quote_file
 
+@app.get("/api/price-tables")
+async def get_price_table_list(username: str = Depends(verify_credentials)):
+    """获取用户的价格表文件列表"""
+    try:
+        user_dir = os.path.join(DATA_ROOT, username, "价格表")
+        
+        if not os.path.exists(user_dir):
+            return JSONResponse(content={"files": []})
+        
+        # 获取所有Excel文件
+        files = []
+        for filename in os.listdir(user_dir):
+            if filename.endswith(('.xlsx', '.xls')):
+                file_path = os.path.join(user_dir, filename)
+                file_stat = os.stat(file_path)
+                
+                # 获取文件基本信息
+                file_info = {
+                    "filename": filename,
+                    "size": file_stat.st_size,
+                    "modified_time": datetime.fromtimestamp(file_stat.st_mtime).isoformat(),
+                    "created_time": datetime.fromtimestamp(file_stat.st_ctime).isoformat()
+                }
+                
+                # 尝试获取行数和列数
+                try:
+                    df = pd.read_excel(file_path)
+                    file_info["row_count"] = len(df)
+                    file_info["column_count"] = len(df.columns)
+                    file_info["columns"] = df.columns.tolist()
+                except Exception as e:
+                    print(f"⚠️ 读取文件 {filename} 的详细信息失败: {e}")
+                    file_info["row_count"] = None
+                    file_info["column_count"] = None
+                    file_info["columns"] = []
+                
+                files.append(file_info)
+        
+        # 按修改时间排序，最新的在前
+        files.sort(key=lambda x: x["modified_time"], reverse=True)
+        
+        return JSONResponse(content={"files": files})
+        
+    except Exception as e:
+        print(f"❌ [ERROR] 获取价格表列表失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"获取价格表列表失败: {str(e)}")
+
 @app.get("/api/price-table/{filename}")
-async def get_price_table_content(filename: str, username: str = Depends(verify_credentials)):
-    """获取价格表内容"""
+async def get_price_table_content(
+    filename: str, 
+    page: int = Query(1, ge=1, description="页码，从1开始"),
+    page_size: int = Query(50, ge=1, le=1000, description="每页显示数量，最大1000"),
+    username: str = Depends(verify_credentials)
+):
+    """获取价格表内容（支持分页）"""
     try:
         # 构建文件路径
         user_dir = os.path.join(DATA_ROOT, username, "价格表")
@@ -2120,11 +2172,31 @@ async def get_price_table_content(filename: str, username: str = Depends(verify_
         # 处理NaN值，将其替换为None，以便JSON序列化
         df_cleaned = df.where(pd.notna(df), None)
         
+        # 计算分页
+        total_rows = len(df_cleaned)
+        total_pages = (total_rows + page_size - 1) // page_size  # 向上取整
+        
+        # 计算起始和结束索引
+        start_idx = (page - 1) * page_size
+        end_idx = min(start_idx + page_size, total_rows)
+        
+        # 获取当前页的数据
+        page_data = df_cleaned.iloc[start_idx:end_idx]
+        
         # 转换为字典格式
         data = {
             "columns": df_cleaned.columns.tolist(),
-            "data": df_cleaned.values.tolist(),
-            "total_rows": len(df_cleaned),
+            "data": page_data.values.tolist(),
+            "pagination": {
+                "current_page": page,
+                "page_size": page_size,
+                "total_rows": total_rows,
+                "total_pages": total_pages,
+                "has_next": page < total_pages,
+                "has_prev": page > 1,
+                "start_index": start_idx + 1,  # 显示用的索引，从1开始
+                "end_index": end_idx
+            },
             "total_columns": len(df_cleaned.columns)
         }
         
